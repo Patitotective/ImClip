@@ -1,4 +1,4 @@
-import std/[strutils, os]
+import std/[strformat, strutils, os]
 
 import imstyle
 import niprefs
@@ -121,9 +121,41 @@ proc drawMain(app: var App) = # Draw the main window
 
   if igBegin(cstring app.config["name"].getString(), flags = makeFlags(ImGuiWindowFlags.NoResize, NoDecoration, NoMove)):
     igText(FA_Info & " Application average %.3f ms/frame (%.1f FPS)", 1000f / igGetIO().framerate, igGetIO().framerate)
-    if igButton("Click me"): echo "Do not do that again"
+    for e, clip in app.clipList.deepCopy():
+      echo if clip.len > app.prefs["maxBuffer"].getInt(): clip[0..app.prefs["maxBuffer"].getInt()] else: clip
+      if igSelectable(cstring calcTextEllipsis(if clip.len > app.prefs["maxBuffer"].getInt(): clip[0..app.prefs["maxBuffer"].getInt()] else: clip), app.selectedClip == e):
+        app.selectedClip = e
+
+        app.lastClipboard = clip
+        igSetClipboardText(cstring clip)
+
+      if igIsItemActive() and not igIsItemHovered(): # Reorder
+        let nextIdx = e + (if igGetMouseDragDelta().y < 0: -1 else: 1)
+        if nextIdx >= 0 and nextIdx < app.clipList.len:
+          (app.clipList[e], app.clipList[nextIdx]) = (app.clipList[nextIdx], clip)
+          
+          igResetMouseDragDelta()
+
+      if igBeginPopupContextItem():
+        if igMenuItem(FA_TrashO & " Remove"):
+          app.clipList.delete(e)
+        igEndPopup()
 
   igEnd()
+
+  # GLFW clipboard -> ImGui clipboard
+  if not app.win.getClipboardString().isNil and $app.win.getClipboardString() != app.curClipboard:
+    igSetClipboardText(app.win.getClipboardString())
+    app.curClipboard = $app.win.getClipboardString()
+
+  # ImGui clipboard -> GLFW clipboard
+  if not igGetClipboardText().isNil and $igGetClipboardText() != app.curClipboard:
+    app.win.setClipboardString(igGetClipboardText())
+    app.curClipboard = $igGetClipboardText()
+
+  if app.curClipboard != app.lastClipboard and app.curClipboard notin app.clipList:
+    app.lastClipboard = app.curClipboard
+    app.clipList.insert(app.curClipboard, 0)
 
 proc render(app: var App) = # Called in the main loop
   # Poll and handle events (inputs, window resize, etc.)
@@ -199,14 +231,24 @@ proc initPrefs(app: var App) =
         y: -1,
         width: 600,
         height: 650
-      }
+      }, 
+      clipList: [], 
+      lastClipboard: "", 
     }
   )
 
 proc initApp(config: TomlValueRef): App = 
-  result = App(config: config, cache: newTTable())
+  result = App(
+    config: config, cache: newTTable(), 
+    selectedClip: -1, 
+  )
   result.initPrefs()
   result.initSettings(result.config["settings"])
+
+  result.lastClipboard = result.prefs["lastClipboard"].getString()
+
+  for clip in result.prefs["clipList"]:
+    result.clipList.add(clip.getString())
 
 proc terminate(app: var App) = 
   var x, y, width, height: int32
@@ -218,6 +260,12 @@ proc terminate(app: var App) =
   app.prefs{"win", "y"} = y
   app.prefs{"win", "width"} = width
   app.prefs{"win", "height"} = height
+
+  app.prefs["lastClipboard"] = app.lastClipboard
+
+  app.prefs["clipList"] = newTArray()
+  for clip in app.clipList:
+    app.prefs["clipList"].add(clip)
 
   app.prefs.save()
 

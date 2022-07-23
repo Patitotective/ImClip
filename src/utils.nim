@@ -29,6 +29,10 @@ type
     cache*: TomlValueRef # Settings cache
     config*: TomlValueRef # Prefs table
 
+    curClipboard*, lastClipboard*: string
+    clipList*: seq[string]
+    selectedClip*: int
+
 proc `+`*(vec1, vec2: ImVec2): ImVec2 = 
   ImVec2(x: vec1.x + vec2.x, y: vec1.y + vec2.y)
 
@@ -90,6 +94,9 @@ proc igCalcTextSize*(text: cstring, text_end: cstring = nil, hide_text_after_dou
 proc igCalcFrameSize*(text: string): ImVec2 = 
   igCalcTextSize(cstring text) + (igGetStyle().framePadding * 2)
 
+proc igGetMouseDragDelta*(button = 0.ImGuiMouseButton, lock_threshold = -1f): ImVec2 = 
+  igGetMouseDragDeltaNonUDT(result.addr, button, lock_threshold)
+
 proc igColorConvertU32ToFloat4*(color: uint32): ImVec4 = 
   igColorConvertU32ToFloat4NonUDT(result.addr, color)
 
@@ -135,6 +142,18 @@ proc igAddFontFromMemoryTTF*(self: ptr ImFontAtlas, data: string, size_pixels: f
   let igFontStr = cast[cstring](igMemAlloc(data.len.uint))
   igFontStr[0].unsafeAddr.copyMem(data[0].unsafeAddr, data.len)
   result = self.addFontFromMemoryTTF(igFontStr, data.len.int32, sizePixels, font_cfg, glyph_ranges)
+
+proc calcTextEllipsis*(text: string, maxWidth: float32 = igGetContentRegionAvail().x, ellipsisText = "..."): string = 
+  result = text
+  var width = igCalcTextSize(cstring text).x
+  let ellipsisWidth = igCalcTextSize(cstring ellipsisText).x
+
+  if width > maxWidth:
+    while width + ellipsisWidth > maxWidth and result.len > ellipsisText.len:
+      result = result[0..^ellipsisText.len]
+      width = igCalcTextSize(cstring result).x
+
+      result.add(ellipsisText)
 
 # To be able to print large holey enums
 macro enumFullRange*(a: typed): untyped =

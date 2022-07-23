@@ -1,10 +1,10 @@
 # Package
 
-version          = "0.4.0"
+version          = "0.1.0"
 author           = "Patitotective"
-description      = "A new awesome Dear ImGui application"
+description      = "Dear ImGui clipboard manager application"
 license          = "MIT"
-namedBin["main"] = "ImExample"
+namedBin["main"] = "ImClip"
 backend          = "cpp"
 
 # Dependencies

@@ -111,23 +111,31 @@ proc drawMainMenuBar(app: var App) =
   app.drawAboutModal()
   app.drawPrefsModal()
 
-proc drawMain(app: var App) = # Draw the main window
-  let viewport = igGetMainViewport()  
+proc setClipTitle(app: App, clip: string) = 
+  var clip = clip.line(0).ellipse(50)
   
-  app.drawMainMenuBar()
-  # Work area is the entire viewport minus main menu bar, task bars, etc.
-  igSetNextWindowPos(viewport.workPos)
-  igSetNextWindowSize(viewport.workSize)
+  if '\n' in clip and clip[^3..^1] != "...":
+    clip.add("...")
 
-  if igBegin(cstring app.config["name"].getString(), flags = makeFlags(ImGuiWindowFlags.NoResize, NoDecoration, NoMove)):
-    igText(FA_Info & " Application average %.3f ms/frame (%.1f FPS)", 1000f / igGetIO().framerate, igGetIO().framerate)
+  app.win.setWindowTitle(cstring &"{clip} — {app.config[\"name\"].getString()}")
+
+proc drawClipList(app: var App) = 
+  if igBeginChild("##clipList"):
+    let drawList = igGetWindowDrawList()
     for e, clip in app.clipList.deepCopy():
-      echo if clip.len > app.prefs["maxBuffer"].getInt(): clip[0..app.prefs["maxBuffer"].getInt()] else: clip
-      if igSelectable(cstring calcTextEllipsis(if clip.len > app.prefs["maxBuffer"].getInt(): clip[0..app.prefs["maxBuffer"].getInt()] else: clip), app.selectedClip == e):
+      drawList.channelsSplit(2)
+      drawList.channelsSetCurrent(1)
+      if igSelectable(cstring clip.ellipse(app.prefs["maxBuffer"].getInt()).igTextEllipsis(), app.selectedClip == e):
         app.selectedClip = e
 
         app.lastClipboard = clip
         igSetClipboardText(cstring clip)
+        app.setClipTitle(clip)
+
+      drawList.channelsSetCurrent(0)
+      igItemBg(if e mod 2 == 0: igGetColorU32(ChildBg) else: igGetColorU32(FrameBg))
+
+      drawList.channelsMerge()
 
       if igIsItemActive() and not igIsItemHovered(): # Reorder
         let nextIdx = e + (if igGetMouseDragDelta().y < 0: -1 else: 1)
@@ -141,6 +149,19 @@ proc drawMain(app: var App) = # Draw the main window
           app.clipList.delete(e)
         igEndPopup()
 
+  igEndChild()
+
+proc drawMain(app: var App) = # Draw the main window
+  let viewport = igGetMainViewport()  
+  
+  app.drawMainMenuBar()
+  # Work area is the entire viewport minus main menu bar, task bars, etc.
+  igSetNextWindowPos(viewport.workPos)
+  igSetNextWindowSize(viewport.workSize)
+
+  if igBegin(cstring app.config["name"].getString(), flags = makeFlags(ImGuiWindowFlags.NoResize, NoDecoration, NoMove)):
+    igText(FA_Info & " Application average %.3f ms/frame (%.1f FPS)", 1000f / igGetIO().framerate, igGetIO().framerate)
+    app.drawClipList()
   igEnd()
 
   # GLFW clipboard -> ImGui clipboard
@@ -153,9 +174,11 @@ proc drawMain(app: var App) = # Draw the main window
     app.win.setClipboardString(igGetClipboardText())
     app.curClipboard = $igGetClipboardText()
 
-  if app.curClipboard != app.lastClipboard and app.curClipboard notin app.clipList:
+  if app.curClipboard != app.lastClipboard:
     app.lastClipboard = app.curClipboard
-    app.clipList.insert(app.curClipboard, 0)
+    app.setClipTitle(app.curClipboard)
+    if app.curClipboard notin app.clipList:
+      app.clipList.insert(app.curClipboard, 0)
 
 proc render(app: var App) = # Called in the main loop
   # Poll and handle events (inputs, window resize, etc.)
@@ -275,7 +298,8 @@ proc main() =
   # Setup Window
   doAssert glfwInit()
   app.initWindow()
-  
+  app.setClipTitle(app.lastClipboard)
+
   app.win.makeContextCurrent()
   glfwSwapInterval(1) # Enable vsync
 

@@ -13,11 +13,11 @@ stylePath = "assets/style.toml"
 iconPath = "assets/icon.png"
 svgIconPath = "assets/icon.svg"
 iconFontPath = "assets/forkawesome-webfont.ttf"
-fontPath = "assets/ProggyVector Regular.ttf" # Other options are Roboto-Regular.ttf, Cousine-Regular.ttf or Karla-Regular.ttf
+fontPath = "assets/UbuntuMono-Regular.ttf" # Other options are Roboto-Regular.ttf, Cousine-Regular.ttf or Karla-Regular.ttf
 fontSize = 16.0
 
 # Window
-minSize = [200, 200] # Width, height
+minSize = [500, 500] # Width, height
 
 # Settings for the preferences window
 [settings.maxBuffer]
@@ -25,6 +25,6 @@ display = "Max buffer"
 type = "slider"
 default = 100
 min = 10
-max = 1000
+max = 5000
 format = "%d"
 flags = "None" # See https://nimgl.dev/docs/imgui.html#ImGuiSliderFlags

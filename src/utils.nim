@@ -1,4 +1,4 @@
-import std/[strutils, strformat, typetraits, enumutils, macros, times, os]
+import std/[strformat, typetraits, enumerate, enumutils, strutils, macros, times, os]
 import chroma
 import niprefs
 import stb_image/read as stbi
@@ -143,17 +143,31 @@ proc igAddFontFromMemoryTTF*(self: ptr ImFontAtlas, data: string, size_pixels: f
   igFontStr[0].unsafeAddr.copyMem(data[0].unsafeAddr, data.len)
   result = self.addFontFromMemoryTTF(igFontStr, data.len.int32, sizePixels, font_cfg, glyph_ranges)
 
-proc calcTextEllipsis*(text: string, maxWidth: float32 = igGetContentRegionAvail().x, ellipsisText = "..."): string = 
-  result = text
-  var width = igCalcTextSize(cstring text).x
-  let ellipsisWidth = igCalcTextSize(cstring ellipsisText).x
+proc igTextEllipsis*(text: string, maxWidth: float32 = igGetContentRegionAvail().x, ellipsisText = "..."): string = 
+  if '\n' in text:
+    for line in text.splitLines():
+      result.add(igTextEllipsis(line, maxWidth, ellipsisText) & '\n')
+  else:
+    result = text
+    var width = igCalcTextSize(cstring text).x
+    let ellipsisWidth = igCalcTextSize(cstring ellipsisText).x
 
-  if width > maxWidth:
-    while width + ellipsisWidth > maxWidth and result.len > ellipsisText.len:
-      result = result[0..^ellipsisText.len]
-      width = igCalcTextSize(cstring result).x
+    if width > maxWidth:
+      while width + ellipsisWidth > maxWidth and result.len > ellipsisText.len:
+        result = result[0..^ellipsisText.len]
+        width = igCalcTextSize(cstring result).x
 
       result.add(ellipsisText)
+
+proc igGetItemRectMin(): ImVec2 = 
+  igGetItemRectMinNonUDT(result.addr)
+
+proc igGetItemRectMax(): ImVec2 = 
+  igGetItemRectMaxNonUDT(result.addr)
+
+proc igItemBg*(color: uint32) = 
+  let (min, max) = (igGetItemRectMin(), igGetItemRectMax())
+  igGetWindowDrawList().addRectFilled(min, max, color)
 
 # To be able to print large holey enums
 macro enumFullRange*(a: typed): untyped =
@@ -324,3 +338,42 @@ proc cleanString*(str: string): string =
 proc updatePrefs*(app: var App) = 
   # Update the values depending on the preferences here
   echo "Updating preferences..."
+
+iterator lineBounds(s: string, keepEol = false): (int, int) =
+  ## Copied from strutils.splitLines iterator, modified to yield the bounds of each line instead of the lines themselves
+  var first = 0
+  var last = 0
+  var eolpos = 0
+  while true:
+    while last < s.len and s[last] notin {'\c', '\l'}: inc(last)
+
+    eolpos = last
+    if last < s.len:
+      if s[last] == '\l': inc(last)
+      elif s[last] == '\c':
+        inc(last)
+        if last < s.len and s[last] == '\l': inc(last)
+
+    yield (first, if keepEol: last-1 else: eolpos-1)
+
+    # no eol characters consumed means that the string is over
+    if eolpos == last:
+      break
+
+    first = last
+
+proc line*(str: string, i: Natural): string = 
+  ## Returns the line at `i` index.
+  ## Raises IndexDefect if `str` does not contain an `i`th line.
+  for e, (first, last) in enumerate(str.lineBounds):
+    if e == i:
+      return str[first..last]
+
+  raise newException(IndexDefect, &"String does not contain {i} lines")
+
+proc ellipse*(str: string, max: Natural, ellipsis = "..."): string = 
+  ## Crops `str` at `max` and adds `ellipsis` to it if `str` is longer than `max`
+  if str.len > max:
+    str[0..<max] & ellipsis
+  else:
+    str

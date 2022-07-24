@@ -2,10 +2,11 @@
 Simple clipboard manager GUI Dear ImGui app written in Nim.
 
 ## TODO
-- Support copying images.
-- Support editing clips.
-- Support pinning clips.
-- Support grouping clips.
+- Support images.
+- Editing clips.
+- Pinning clips.
+- Grouping clips.
+- Opening hyperlinks.
 
 ## About
 - GitHub: https://github.com/Patitotective/ImClip.

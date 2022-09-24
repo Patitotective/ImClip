@@ -10,7 +10,7 @@ Simple clipboard manager GUI Dear ImGui app written in Nim.
 
 ## About
 - GitHub: https://github.com/Patitotective/ImClip.
-- Discord: https://discord.gg/as85Q4GnR6.
+- Discord: https://discord.gg/gdcPVjazCG.
 
 Contact me:
 - Discord: **Patitotective#0127**.
